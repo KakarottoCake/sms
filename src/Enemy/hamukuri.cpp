@@ -1299,7 +1299,141 @@ void THaneHamuKuri::reset()
 	unk21C = 0.0f;
 }
 
-void THaneHamuKuri::walkBehavior(int, f32) { }
+void THaneHamuKuri::walkBehavior(int param_1, f32 param_2)
+{
+	f32 flyBaseHeight = unk22C->mSLFlyBaseHeight.get();
+
+	if (mBoundFly) {
+		int airborne = (mLiveFlag & LIVE_FLAG_AIRBORNE) ? 1 : 0;
+		if (airborne == 0) {
+			f32 flyHeight = unk22C->mSLNormalJumpVy.get();
+			if (param_1 == 2)
+				flyHeight = unk22C->mSLAttackJumpVy.get();
+			JGeometry::TVec3<f32> velocity(0.0f, flyHeight, 0.0f);
+			mVelocity = velocity;
+			mPosition.y += 10.0f;
+			onLiveFlag(LIVE_FLAG_AIRBORNE);
+		}
+	} else if (unk21C == 0.0f && unk214 == 0.0f
+	           && fabsf(unk230 - mGroundHeight) > 5.0f) {
+		unk214 = (mGroundHeight - unk230) / 120.0f;
+		if (unk214 > 10.0f)
+			unk214 = 10.0f;
+		if (unk214 < -10.0f)
+			unk214 = -10.0f;
+	}
+
+	if (unk214 > 0.0f) {
+		unk230 += unk214;
+		if (unk230 > mGroundHeight)
+			unk214 = 0.0f;
+	}
+
+	if (unk214 < 0.0f) {
+		unk230 += unk214;
+		if (unk230 < mGroundHeight) {
+			unk214 = 0.0f;
+			unk230 = 1.0f + mGroundHeight;
+		}
+	}
+
+	f32 flyBaseAmplitude = unk22C->mSLFlyBaseAmplitude.get();
+	f32 flyBaseFrequency = unk22C->mSLFlyBaseFrequency.get();
+
+	if (mSpine->getCurrentNerve() != &TNerveWalkerGraphWander::theNerve()
+	    && mSpine->getCurrentNerve() != &TNerveWalkerAttack::theNerve()) {
+		if (mSpine->getCurrentNerve()
+		        != &TNerveDoroHanePrepareAttack::theNerve()
+		    && unk234 > 0.0f)
+			unk234 -= 10.0f;
+	} else if (unk21C == 0.0f) {
+		unk20C += 1.0f;
+		if (unk20C > flyBaseFrequency)
+			unk20C = 0.0f;
+		if (unk234 < flyBaseHeight)
+			unk234 += 1.0f;
+		if (unk234 > flyBaseHeight)
+			unk234 -= 1.0f;
+	}
+
+	if (mSpine->getCurrentNerve() == &TNerveWalkerAttack::theNerve()
+	    || mSpine->getCurrentNerve() == &TNerveWalkerGraphWander::theNerve()) {
+		if (unk21C != 0.0f) {
+			mGroundHeight = gpMap->checkGround(
+			    mPosition.x, 2.0f * mHeadHeight + mPosition.y, mPosition.z,
+			    &mGroundPlane);
+			if (unk210 + unk230 + unk234 > mGroundHeight) {
+				param_1 = 3;
+				unk234 -= 15.0f;
+				unk230         = mGroundHeight;
+				unk210         = 0.0f;
+				unk214         = 0.0f;
+				unk20C         = 0.0f;
+				if (unk234 + unk210 > 200.0f) {
+					f32 maxScale = 1.3f * mBodyScale;
+					f32 newScale = 1.1f * mScaling.y;
+					if (newScale > maxScale)
+						newScale = maxScale;
+					else if (newScale < 0.0f)
+						newScale = 0.0f;
+					mScaling.y = newScale;
+				} else {
+					f32 maxScale = 1.3f * mBodyScale;
+					f32 newScale = 0.8f * mScaling.x;
+					f32 minScale = 0.5f * mBodyScale;
+					if (newScale > maxScale)
+						newScale = maxScale;
+					else if (newScale < minScale)
+						newScale = minScale;
+					mScaling.y = newScale;
+				}
+			} else {
+				unk21C = 0.0f;
+				unk214 = 0.0f;
+				unk210 = 0.0f;
+				unk234 = 0.0f;
+				unk20C = 0.0f;
+				gpMarioParticleManager->emit(PARTICLE_MS_HIPDROP_C,
+				                             &mPosition, 0, nullptr);
+				SMSRumbleMgr->start(0x15, 5, (f32*)nullptr);
+				if (SMSGetMSound()->gateCheck(MSD_SE_MA_HIP_ATTACK))
+					MSoundSESystem::MSoundSE::startSoundActor(
+					    MSD_SE_MA_HIP_ATTACK, &mPosition, 0, nullptr, 0, 4);
+				setGoalPathMario();
+				mSpine->pushNerve(&TNerveHaneHamuKuriUpWait::theNerve());
+			}
+		}
+	} else if (isReachedToGoal() && unk234 > flyBaseHeight - 10.0f) {
+		unk21C = 1.0f;
+		mSpine->pushNerve(&TNerveDoroHanePrepareAttack::theNerve());
+	}
+
+	if (unk21C == 0.0f)
+		unk210 = flyBaseAmplitude
+		         * MsSin(unk20C * 360.0f / flyBaseFrequency);
+	mPosition.y = unk210 + unk230 + unk234;
+
+	if (mSpine->getCurrentNerve() == &TNerveHaneHamuKuriUpWait::theNerve()
+	    && unk234 < flyBaseHeight)
+		unk234 += 1.0f;
+
+	JGeometry::TVec3<f32> direction = mPosition;
+	direction.sub(unk220);
+	JGeometry::TVec3<f32> normalized = direction;
+	MsVECNormalize(&normalized, &normalized);
+
+	if (mSpine->getCurrentNerve() == &TNerveHaneHamuKuriUpWait::theNerve())
+		mRotation.x *= 0.05f;
+	mRotation.z = MsGetRotFromZaxis(normalized).y;
+
+	if (unk21C == 0.0f && mCurrentBckAnm != 4)
+		TWalkerEnemy::walkBehavior(param_1, param_2);
+
+	unk220 = mPosition;
+	unk218 = mRotation.y;
+	if (unk21C != 0.0f && mPosition.y < mGroundHeight)
+		mPosition.y = mGroundHeight;
+}
 
 void THaneHamuKuri::bind()
 {
