@@ -1821,16 +1821,15 @@ void TDangoHamuKuri::calcRootMatrix()
 			if (unk230) {
 				unk210 += 40.0f;
 				if (unk210 > 360.0f) {
-					// TODO: should be a rand interval
-					unk210 = -MsRandF(10.0f, 20.0f);
+					unk210 = -TMsRange<f32>(0.0f, 20.0f).rand();
 					unk230 = 0;
 				}
 				TDangoHamuKuri* holder = (TDangoHamuKuri*)mHolder;
 				if (holder->unk230)
 					unk210 = -holder->unk210;
-				takingMtx[3][0] += unk21C;
-				takingMtx[3][1] += unk220;
-				takingMtx[3][2] += unk224;
+				takingMtx[0][3] += unk21C;
+				takingMtx[1][3] += unk220;
+				takingMtx[2][3] += unk224;
 
 				getModel()->setBaseScale(mScaling);
 				Mtx afStack_68;
@@ -1838,8 +1837,8 @@ void TDangoHamuKuri::calcRootMatrix()
 				MTXConcat(takingMtx, afStack_68, takingMtx);
 				getModel()->setBaseTRMtx(takingMtx);
 
-				mPosition.set(takingMtx[3][0], takingMtx[3][1],
-				              takingMtx[3][2]);
+				mPosition.set(takingMtx[0][3], takingMtx[1][3],
+				              takingMtx[2][3]);
 				return;
 			}
 		}
@@ -2430,7 +2429,7 @@ bool TDoroHamuKuri::isCollidMove(THitActor* param_1)
 						// TODO: this is an inline
 						int uVar11 = unk124->getCurGraphIndex();
 
-						int count  = MsRandF(2, 3);
+						int count  = MsRandI(2, 3);
 						int uVar10 = -1;
 						for (int i = 0; i < count; ++i) {
 							int next = unk124->unk0->getRandomNextIndex(
